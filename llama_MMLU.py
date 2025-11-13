@@ -220,7 +220,7 @@ for title in titles_to_test:
         # all_outputs = generator(
         #     prompts,
         #     max_new_tokens=MAX_TOKENS,
-        #     batch_size=BATCH_SIZE,   # let the pipeline split internally
+        #     batch_size=BATCH_SIZE,
         #     do_sample=False
         # )
 
