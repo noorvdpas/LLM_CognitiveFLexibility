@@ -20,10 +20,29 @@ from datetime import datetime
 import os
 from tqdm import tqdm
 import torch
+import argparse
 
 # Set permanent cache directories
 CACHE_DIR = "/scratch/fast/huggingface_cache"
 DATASETS_CACHE_DIR = "/scratch/fast/huggingface_datasets_cache"
+
+# Parse command-line arguments
+parser = argparse.ArgumentParser(
+    description="Run MMLU evaluation with contexts on specified CUDA device."
+)
+parser.add_argument(
+    "--chunk",
+    type=str,
+    default="1/1",
+    help="Chunk to process in format 'current/total' (e.g., '1/5' for first of 5 chunks, default: '1/1')",
+)
+parser.add_argument(
+    "--device", type=int, default=0, help="CUDA device ID to use (default: 0)"
+)
+args = parser.parse_args()
+
+# Set CUDA device
+os.environ["CUDA_VISIBLE_DEVICES"] = str(args.device)
 
 # Ensure cache directories exist
 os.makedirs(CACHE_DIR, exist_ok=True)
@@ -56,7 +75,7 @@ test_name = "cais/mmlu"
 CACHE_DIR = "/scratch/fast/huggingface_cache"
 MAX_TOKENS = 5
 NUM_TEST = 1000
-BATCH_SIZE = 5  # Reduced to avoid OOM, increase gradually if possible
+BATCH_SIZE = 4  # Reduced to avoid OOM, increase gradually if possible
 SEED = 28
 
 tokenizer = AutoTokenizer.from_pretrained(model_name, cache_dir=CACHE_DIR)
@@ -208,9 +227,31 @@ with open(contexts_file, newline="", encoding="utf-8") as f:
             contexts[title] = {}
         contexts[title][ctype] = text
 
-titles_to_test = ["Astar_(game)"]
+# titles_to_test = ["Astar_(game)"]
+titles_to_test = list(contexts.keys())
 
-# titles_to_test = ["Astar_(game)", "Kingsley_Halt_railway_station", "Epinotia_nemorivaga", "Legal_separation", "Neutral_lipid_storage_disease", "Empty_context"]
+# Sort titles for consistent chunking
+titles_to_test.sort()
+
+# Parse chunk argument
+chunk_parts = args.chunk.split("/")
+current_chunk = int(chunk_parts[0]) - 1  # 0-based index
+total_chunks = int(chunk_parts[1])
+
+# Calculate chunk range
+total_titles = len(titles_to_test)
+chunk_size = total_titles // total_chunks
+start_idx = current_chunk * chunk_size
+end_idx = start_idx + chunk_size if current_chunk < total_chunks - 1 else total_titles
+
+# Select the chunk
+titles_to_test = titles_to_test[start_idx:end_idx]
+
+print(f"Titles to test: {titles_to_test}")
+print(
+    f"Processing chunk {args.chunk}: {len(titles_to_test)} contexts (indices {start_idx} to {end_idx-1}) out of {total_titles} total on device {args.device}"
+)
+
 context_types = ["clean"]
 
 csv_fullanswers = "mmlu_results_eval.csv"
