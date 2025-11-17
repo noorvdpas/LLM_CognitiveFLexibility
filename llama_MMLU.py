@@ -43,9 +43,9 @@ parser.add_argument(
 parser.add_argument(
     "--contexts_file",
     type=str,
-    default="contexts.csv",
-    choices=["contexts.csv", "contexts_conspiracy.csv"],
-    help="Contexts file to use (default: contexts.csv)",
+    default="contexts_wikipedia.csv",
+    choices=["contexts_wikipedia.csv", "contexts_conspiracy.csv"],
+    help="Contexts file to use (default: contexts_wikipedia.csv)",
 )
 args = parser.parse_args()
 
@@ -262,8 +262,10 @@ print(
 
 context_types = ["clean"]
 
-csv_fullanswers = "mmlu_results_eval.csv"
-csv_results = "results.csv"
+if args.contexts_file == "contexts_conspiracy.csv":
+    csv_results = "results_conspiracy.csv"
+elif args.contexts_file == "contexts_wikipedia.csv":
+    csv_results = "results_wikipedia.csv"
 file_exists = os.path.exists(csv_results)
 
 # Load existing results to avoid re-processing
@@ -277,20 +279,6 @@ if file_exists:
             if title not in existing_results:
                 existing_results[title] = {}
             existing_results[title][ctype] = float(row["accuracy"])
-
-with open(csv_fullanswers, "w", newline="", encoding="utf-8") as f_full:
-    full_writer = csv.DictWriter(
-        f_full,
-        fieldnames=[
-            "subject",
-            "context_type",
-            "question",
-            "model_output",
-            "model_answer",
-            "reference_answer",
-        ],
-    )
-    full_writer.writeheader()
 
 accuracy_dict = {
     title: {ctype: 0.0 for ctype in context_types} for title in titles_to_test
@@ -349,39 +337,13 @@ for title in titles_to_test:
         correct = 0
         total = 0
 
-        with open(csv_fullanswers, "a", newline="", encoding="utf-8") as f_full:
-            writer = csv.DictWriter(
-                f_full,
-                fieldnames=[
-                    "subject",
-                    "context_title",
-                    "context_type",
-                    "question",
-                    "model_output",
-                    "model_answer",
-                    "reference_answer",
-                ],
-            )
-            for i, item in enumerate(dataset):
-                model_output = all_outputs[i]["generated_text"]
-                extracted_answer = extract_mc_answer(model_output)
-                reference_answer = chr(65 + item["answer"])
-                if extracted_answer == reference_answer:
-                    correct += 1
-                total += 1
-
-                """
-                writer.writerow(
-                    {
-                        "subject": item.get("subject", "unknown"),
-                        "context_title": title,
-                        "context_type": ctype,
-                        "question": f"Q{i+1}: {item['question']}",
-                        "model_output": model_output,
-                        "model_answer": extracted_answer,
-                        "reference_answer": reference_answer,
-                    }
-                )"""
+        for i, item in enumerate(dataset):
+            model_output = all_outputs[i]["generated_text"]
+            extracted_answer = extract_mc_answer(model_output)
+            reference_answer = chr(65 + item["answer"])
+            if extracted_answer == reference_answer:
+                correct += 1
+            total += 1
 
         accuracy = correct / total
         accuracy_dict[title][ctype] = accuracy
