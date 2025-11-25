@@ -88,7 +88,6 @@ def meaningful_shuffle(text):
                 else:
                     pos_list[label].append(token.text.lower())
 
-    print(pos_list)
 
 
     for label in pos_list:
