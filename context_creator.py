@@ -3,18 +3,30 @@ import random
 import csv
 import os
 import string
+import spacy
+import re
+from spacy.tokenizer import Tokenizer
+from spacy.util import compile_infix_regex
 
 SEED = 28
 process_text = spacy.load("en_core_web_sm")
-text_title = "climate_conspiracy"
-text = "And so you’ve got the green movement creating stories that instill fear in the public. You’ve got the media echo chamber - fake news - repeating it over and over and over again to everybody that they’re killing their children. And then you’ve got the green politicians who are buying scientists with government money to produce fear for them in the form of scientific-looking materials. And then you’ve got the green businesses, the rent-seekers, and the crony capitalists who are taking advantage of massive subsidies, huge tax write-offs, and government mandates requiring their technologies to make a fortune on this. And then, of course, you’ve got the scientists who are willingly, they’re basically hooked on government grants."
+text_title = "test"
+text = """Pierre Paulus (1881–1959), later Baron Pierre Paulus de Châtelet, was a Belgian expressionist painter. He's best known as the designer of the "bold rooster" (French: coq hardi) adopted on 3 July 1913 as the symbol of the Walloon Movement and today the flag of Wallonia.[1][2][3] Paulus gained notability during the Walloon Art Exposition of Charleroi in 1911 and, in the interwar period, he held several exhibitions in Europe and in the United States. We've never seen someone like him."""
+#pattern = r"'s|'ve|'re|'ll|n't|'d"
 random.seed(SEED)
 
-def meaningful_shuffle(text):
+
+def preprocess(text):
+    #text = re.sub(r"(\w+)\.(\[\d+\])", r"\1. \2", text)
+    #text = re.sub(r"(\w+)\.((?:\[\d+\])+)", lambda m: f"{m.group(1)}. {m.group(2)}",text)
+    text = re.sub(r"(\w+)\.((?:\[\d+\])+)", lambda m: m.group(1) + ". " + re.sub(r"(\[\d+\])", r" \1", m.group(2)).strip(),text)
+
+
     doc = process_text(text)
 
     with doc.retokenize() as retokenizer:
         i = 0
+
         while i < len(doc):
             token = doc[i]
             if token.text.isalpha() and i + 2 < len(doc) and doc[i + 1].text == '-' and doc[i + 2].text.isalpha():
@@ -27,8 +39,34 @@ def meaningful_shuffle(text):
                 except Exception:
                     pass
                 i = end
+
+            elif (token.text == '[' and i + 2 < len(doc) and
+                doc[i+1].text.isdigit() and doc[i+2].text == ']'):
+                start = i
+                end = i + 3
+                try:
+                    retokenizer.merge(doc[start:end], attrs={"LEMMA": "".join([t.text for t in doc[start:end]])})
+                except Exception:
+                    pass
+                i = end
             else:
                 i += 1
+
+            
+
+    return doc
+
+
+
+
+def meaningful_shuffle(text):
+    doc = preprocess(text)
+    
+    citations = set()
+    for token in doc:
+        if re.fullmatch(r"\[\d+\]", token.text):
+            citations.add(token.text)
+
 
     pos_list = {}
     sentences = list(doc.sents)
@@ -37,171 +75,128 @@ def meaningful_shuffle(text):
         for token in sent:
             if token.is_punct:
                 continue
-            label = token.pos_
-            if label not in pos_list:
-                pos_list[label] = []
-            if label == "PROPN":
-                pos_list[label].append(token.text)
+            if token.text in citations:
+                if "CITATION" not in pos_list:
+                    pos_list["CITATION"] = []
+                pos_list["CITATION"].append(token.text)
             else:
-                pos_list[label].append(token.text.lower())
+                label = token.pos_
+                if label not in pos_list:
+                    pos_list[label] = []
+                if label == "PROPN":
+                    pos_list[label].append(token.text)
+                else:
+                    pos_list[label].append(token.text.lower())
+
+    print(pos_list)
+
 
     for label in pos_list:
         random.shuffle(pos_list[label])
 
-    new_text = []
+    final_text = ""
     pos_indices = {label: 0 for label in pos_list}
 
     for token in doc:
-        if token.is_punct:
-            new_text.append(token.text)
+        if token.is_punct or token.text in citations:
+            final_text += token.text + token.whitespace_
         else:
             label = token.pos_
             new_word = pos_list[label][pos_indices[label]]
             pos_indices[label] += 1
             if token.is_sent_start and token.text[0].isupper():
                 new_word = new_word.capitalize()
-            new_text.append(new_word)
+            final_text += new_word + token.whitespace_
 
-    final_text = ""
-    for token in new_text:
-        if token in string.punctuation and token not in ["(", "[", "{", "'"]:
-            final_text = final_text.rstrip() + token
-        elif token in ["(", "[", "{"]:
-            final_text += " " + token
-        elif len(final_text) > 0 and final_text[-1] in ["(", "[", "{", "'", "/"]:
-            final_text += token
-        elif token in ["'s", "'d", "'re", "'m", "'ve"]:
-            final_text = final_text.rstrip() + token
-        else:
-            final_text += " " + token
 
-    final_text = final_text.strip()
-    return final_text
+    return final_text.strip()
+
 
 
 
 def word_shuffle(text):
-    doc = process_text(text)
+    doc = preprocess(text)
 
-    with doc.retokenize() as retokenizer:
-        i = 0
-        while i < len(doc):
-            token = doc[i]
-            if token.text.isalpha() and i + 2 < len(doc) and doc[i + 1].text == '-' and doc[i + 2].text.isalpha():
-                start = i
-                end = i + 3
-                while end + 1 < len(doc) and doc[end].text == '-' and doc[end + 1].text.isalpha():
-                    end += 2
-                try:
-                    retokenizer.merge(doc[start:end])
-                except Exception:
-                    pass
-                i = end
-            else:
-                i += 1
+    citations = set()
+    for token in doc:
+        if re.fullmatch(r"\[\d+\]", token.text):
+            citations.add(token.text)
 
-    sentences = list(doc.sents)
     words = []
+    sentences = list(doc.sents)
 
     for sent in sentences:
         for token in sent:
-            if token.is_punct:
+            if token.is_punct or token.text in citations:
                 continue
-            elif token.pos_ == "PROPN":
-                words.append(token.text)
             else:
-                words.append(token.text.lower())
+                label = token.pos_
+                if label == "PROPN":
+                    words.append(token.text)
+                else:
+                    words.append(token.text.lower())
 
     random.shuffle(words)
 
-    new_text = []
+    final_text = ""
     word_idx = 0
-
     for token in doc:
-        if token.is_punct:
-            new_text.append(token.text)
+        if token.is_punct or token.text in citations:
+            final_text += token.text + token.whitespace_
         else:
             new_word = words[word_idx]
             word_idx += 1
             if token.is_sent_start and token.text[0].isupper():
                 new_word = new_word.capitalize()
-            new_text.append(new_word)
+            final_text += new_word + token.whitespace_
 
-    final_text = ""
-    for token in new_text:
-        if token in string.punctuation and token not in ["(", "[", "{", "'"]:
-            final_text = final_text.rstrip() + token
-        elif token in ["(", "[", "{"]:
-            final_text += " " + token
-        elif len(final_text) > 0 and final_text[-1] in ["(", "[", "{", "'", "/"]:
-            final_text += token
-        elif token in ["'s", "'d", "'re", "'m", "'ve"]:
-            final_text = final_text.rstrip() + token
-        else:
-            final_text += " " + token
+    return final_text.strip()
 
-    final_text = final_text.strip()
-    return final_text
+
 
 def character_shuffle(text):
-    doc = process_text(text)
+    doc = preprocess(text)
 
-    with doc.retokenize() as retokenizer:
-        i = 0
-        while i < len(doc):
-            token = doc[i]
-            if token.text.isalpha() and i + 2 < len(doc) and doc[i + 1].text == '-' and doc[i + 2].text.isalpha():
-                start = i
-                end = i + 3
-                while end + 1 < len(doc) and doc[end].text == '-' and doc[end + 1].text.isalpha():
-                    end += 2
-                try:
-                    retokenizer.merge(doc[start:end])
-                except Exception:
-                    pass
-                i = end
-            else:
-                i += 1
+    citations = set()
+    for token in doc:
+        if re.fullmatch(r"\[\d+\]", token.text):
+            citations.add(token.text)
+
 
     chars = []
-    for c in text:
-        if c == '-':
-            chars.append(c)
-        elif c not in string.punctuation and not c.isspace():
-            chars.append(c.lower())
+    for token in doc:
+        if not token.is_punct and token.text not in citations:
+            for i, c in enumerate(token.text):
+                # apostrophes inside words
+                if not c.isspace() and (c not in string.punctuation or c == "'"):
+                    chars.append(c.lower())
+
+
 
     random.shuffle(chars)
     new_text = []
 
+    final_text = ""
     for token in doc:
-        if token.is_punct:
-            new_text.append(token.text)
+        if token.is_punct or token.text in citations:
+            final_text += token.text + token.whitespace_
         else:
             t_length = len(token.text)
             new_word = "".join(chars[:t_length])
             chars = chars[t_length:]
-            if token.text[0].isupper():
+            if token.is_sent_start and token.text[0].isupper():
                 new_word = new_word.capitalize()
-            new_text.append(new_word)
+            final_text += new_word + token.whitespace_
 
-    final_text = ""
-    for token in new_text:
-        if token in string.punctuation and token not in ["(", "[", "{", "'"]:
-            final_text = final_text.rstrip() + token
-        elif token in ["(", "[", "{"]:
-            final_text += " " + token
-        elif len(final_text) > 0 and final_text[-1] in ["(", "[", "{", "'", "/"]:
-            final_text += token
-        elif token in ["'s", "'d", "'re", "'m", "'ve"]:
-            final_text = final_text.rstrip() + token
-        else:
-            final_text += " " + token
 
-    final_text = final_text.strip()
-    return final_text
+    return final_text.strip()
 
-csv_contexts = "contexts_bad.csv"
+
+
+csv_contexts = "contexts_new.csv"
 context_file_exists = os.path.isfile(csv_contexts)
+
+
 
 with open(csv_contexts, "a", newline="", encoding="utf-8") as w:
     writer = csv.DictWriter(w, fieldnames=["context_title", "context_type", "context_text"])
@@ -211,7 +206,7 @@ with open(csv_contexts, "a", newline="", encoding="utf-8") as w:
     writer.writerow(
         {"context_title": text_title, 
         "context_type": "clean", 
-        "context_text": text}
+        "context_text": preprocess(text)}
         )
     writer.writerow(
         {"context_title": text_title, 
@@ -228,4 +223,6 @@ with open(csv_contexts, "a", newline="", encoding="utf-8") as w:
         "context_type": "char_shuffle", 
         "context_text": character_shuffle(text)}
         )
-
+    
+import os
+print(os.getcwd())
