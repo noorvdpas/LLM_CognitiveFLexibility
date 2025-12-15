@@ -8,19 +8,55 @@ import re
 from spacy.tokenizer import Tokenizer
 from spacy.util import compile_infix_regex
 
-SEED = 28
+
 process_text = spacy.load("en_core_web_sm")
 text_title = "test"
-text = """Pierre Paulus (1881–1959), later Baron Pierre Paulus de Châtelet, was a Belgian expressionist painter. He's best known as the designer of the "bold rooster" (French: coq hardi) adopted on 3 July 1913 as the symbol of the Walloon Movement and today the flag of Wallonia.[1][2][3] Paulus gained notability during the Walloon Art Exposition of Charleroi in 1911 and, in the interwar period, he held several exhibitions in Europe and in the United States. We've never seen someone like him."""
-#pattern = r"'s|'ve|'re|'ll|n't|'d"
-random.seed(SEED)
+text = """Pierre Paulus (1881–1959), later Baron Pierre Paulus de Châtelet, was a Belgian expressionist painter. He hasn't been best known as the designer of the "bold rooster" (French: coq hardi) adopted on 3 July 1913 as the symbol of the Walloon Movement and today the flag of Wallonia.[1][2][3] Paulus gained notability during the Walloon Art Exposition of Charleroi in 1911 and, in the interwar period, he held several exhibitions in Europe and in the United States. We've never seen someone like him."""
+
+NEG_CONTRACTIONS = {
+    "aren't": "are not",
+    "can't": "cannot",
+    "couldn't": "could not",
+    "didn't": "did not",
+    "doesn't": "does not",
+    "don't": "do not",
+    "hadn't": "had not",
+    "hasn't": "has not",
+    "haven't": "have not",
+    "isn't": "is not",
+    "mightn't": "might not",
+    "mustn't": "must not",
+    "shan't": "shall not",
+    "shouldn't": "should not",
+    "wasn't": "was not",
+    "weren't": "were not",
+    "won't": "will not",
+    "wouldn't": "would not",
+}
+
+def expand_neg_contractions(text):
+    def replace_match(match):
+        word = str(match.group(0))
+        lc = word.lower()
+        if lc in NEG_CONTRACTIONS:
+            new = NEG_CONTRACTIONS[lc]
+            if word[0].isupper():
+                new = new[0].upper() + new[1:]
+                return new
+            else:
+                return new
+        return word
+    
+
+    return re.sub(r"\b\w+n't\b", replace_match, text, flags=re.IGNORECASE)
+
 
 
 def preprocess(text):
-    #text = re.sub(r"(\w+)\.(\[\d+\])", r"\1. \2", text)
-    #text = re.sub(r"(\w+)\.((?:\[\d+\])+)", lambda m: f"{m.group(1)}. {m.group(2)}",text)
     text = re.sub(r"(\w+)\.((?:\[\d+\])+)", lambda m: m.group(1) + ". " + re.sub(r"(\[\d+\])", r" \1", m.group(2)).strip(),text)
-
+    text = text.replace("’", "'")
+    text = expand_neg_contractions(text)
+    text = re.sub(r"\s+", " ", text).strip()
 
     doc = process_text(text)
 
@@ -57,6 +93,10 @@ def preprocess(text):
     return doc
 
 
+def clean(text):
+    doc = preprocess(text)
+    return doc
+
 
 
 def meaningful_shuffle(text):
@@ -88,11 +128,11 @@ def meaningful_shuffle(text):
                 else:
                     pos_list[label].append(token.text.lower())
 
-    print(pos_list)
-
 
     for label in pos_list:
         random.shuffle(pos_list[label])
+
+
 
     final_text = ""
     pos_indices = {label: 0 for label in pos_list}
@@ -102,11 +142,22 @@ def meaningful_shuffle(text):
             final_text += token.text + token.whitespace_
         else:
             label = token.pos_
-            new_word = pos_list[label][pos_indices[label]]
+            new_word = str(pos_list[label][pos_indices[label]])
             pos_indices[label] += 1
             if token.is_sent_start and token.text[0].isupper():
-                new_word = new_word.capitalize()
-            final_text += new_word + token.whitespace_
+                new_word = new_word[0].upper() + new_word[1:]
+            if token.text.startswith("'") or token.text.startswith("’"):
+                if new_word.startswith("'") or new_word.startswith("’"):
+                    final_text += new_word + token.whitespace_
+                else:
+                    final_text += " " + new_word + token.whitespace_
+            else: 
+                if new_word.startswith("'") or new_word.startswith("’"):
+                    final_text = final_text.rstrip(" ")
+                    final_text += new_word + token.whitespace_
+                else:
+                    final_text += new_word + token.whitespace_
+            
 
 
     return final_text.strip()
@@ -140,18 +191,29 @@ def word_shuffle(text):
 
     final_text = ""
     word_idx = 0
+
     for token in doc:
         if token.is_punct or token.text in citations:
             final_text += token.text + token.whitespace_
         else:
-            new_word = words[word_idx]
+            new_word = str(words[word_idx])
             word_idx += 1
             if token.is_sent_start and token.text[0].isupper():
-                new_word = new_word.capitalize()
-            final_text += new_word + token.whitespace_
+                new_word = new_word[0].upper() + new_word[1:]
+            if token.text.startswith("'") or token.text.startswith("’"):
+                if new_word.startswith("'") or new_word.startswith("’"):
+                    final_text += new_word + token.whitespace_
+                else:
+                    final_text += " " + new_word + token.whitespace_
+            else: 
+                if new_word.startswith("'") or new_word.startswith("’"):
+                    final_text = final_text.rstrip(" ")
+                    final_text += new_word + token.whitespace_
+                else:
+                    final_text += new_word + token.whitespace_
 
     return final_text.strip()
-
+            
 
 
 def character_shuffle(text):
@@ -167,14 +229,11 @@ def character_shuffle(text):
     for token in doc:
         if not token.is_punct and token.text not in citations:
             for i, c in enumerate(token.text):
-                # apostrophes inside words
-                if not c.isspace() and (c not in string.punctuation or c == "'"):
-                    chars.append(c.lower())
+                chars.append(c.lower())
 
 
 
     random.shuffle(chars)
-    new_text = []
 
     final_text = ""
     for token in doc:
@@ -185,7 +244,7 @@ def character_shuffle(text):
             new_word = "".join(chars[:t_length])
             chars = chars[t_length:]
             if token.is_sent_start and token.text[0].isupper():
-                new_word = new_word.capitalize()
+                new_word = new_word[0].upper() + new_word[1:]
             final_text += new_word + token.whitespace_
 
 
