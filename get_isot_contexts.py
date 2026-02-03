@@ -27,7 +27,7 @@ def process_dataset(df, label, output_file):
     random.shuffle(snippets)
 
     num_snippets = 0
-    max_snippets = 500
+    max_snippets = 1000
 
     with open(output_file, "a", newline="", encoding="utf-8") as csvfile:
         writer = csv.writer(csvfile)
@@ -36,15 +36,16 @@ def process_dataset(df, label, output_file):
                 break
             # Clean the snippet: replace newlines with spaces, strip
             snippet = snippet.replace("\n", " ").strip()
-            if 400 <= len(snippet) <= 600:
+            if 200 <= len(snippet) <= 800:
                 title = f"isot_{label}_{num_snippets+1}"
-                writer.writerow([title, "clean", snippet])
+                cl = context_creator.clean(snippet)
+                writer.writerow([title, "clean", cl])
                 ms = context_creator.meaningful_shuffle(snippet)
-                writer.writerow([title, "meaningful_shuffle", ms])
+                writer.writerow([title, "meani", ms])
                 ws = context_creator.word_shuffle(snippet)
-                writer.writerow([title, "word_shuffle", ws])
+                writer.writerow([title, "wordd", ws])
                 cs = context_creator.character_shuffle(snippet)
-                writer.writerow([title, "character_shuffle", cs])
+                writer.writerow([title, "chara", cs])
                 print(f"Added {label} snippet {num_snippets+1}: {title}")
                 num_snippets += 1
 

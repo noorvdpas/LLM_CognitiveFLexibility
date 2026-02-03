@@ -25,7 +25,7 @@ import argparse
 
 # Set permanent cache directories
 CACHE_DIR = "/scratch/fast/huggingface_cache"
-DATASETS_CACHE_DIR = "/scratch/fast/huggingface_datasets_cache"
+DATASETS_CACHE_DIR = "/scratch/fast/noopas/hf_datasets_cache"
 
 # Parse command-line arguments
 parser = argparse.ArgumentParser(
@@ -216,7 +216,7 @@ def format_prompt_with_context(
     return (
         f"Read this coming text very carefully: \n\n"
         f"{context_text}\n\n"
-        f"Okay, and now, with all of that in mind, for the following question. Answer ONLY with a single letter (A, B, C, or D):\n\n"
+        f"Okay, and now, with all of that in mind, for the following question, answer ONLY with a single letter (A, B, C, or D):\n\n"
         f"Question: {question}\n\n"
         f"Choices:\n{choices_str}\n\n"
         "Answer ONLY with a single letter (A, B, C, or D) \n"
@@ -269,7 +269,7 @@ print(
     f"Processing chunk {args.chunk}: {len(titles_to_test)} contexts (indices {start_idx} to {end_idx-1}) out of {total_titles} total on device {args.device}"
 )
 
-context_types = ["clean", "meaningful_shuffle"]
+context_types = ["clean", "meani", "wordd", "chara"]
 
 if args.contexts_file == "contexts_conspiracy.csv":
     csv_results = "results_conspiracy.csv"

@@ -25,13 +25,19 @@ except Exception as e:
 snippets = df["snippet"].dropna().tolist()
 
 # Set random seed for repeatability
-random.seed(42)
+random.seed(28)
 
 # Shuffle all snippets for random selection
 random.shuffle(snippets)
 
 num_snippets = 0
-max_snippets = 100
+max_snippets = 1000
+
+# Set random seed for repeatability
+random.seed(28)
+
+textt = "The Al Jazeera hoax was intended to create the impression that Tripoli had fallen so as:   (1) to break the Libyan resistance by creating panic and chaos in the Libyan captial.  (2) to provide cover for the massacres of civilians that would occur in the days following the declaration of rebel victory.   In other words, the media would provide cover for the war crimes and crimes against humanity that are necessary in order to subjugate the Libyan Jamhahirya to Western corporate interests."
+
 
 with open("contexts_conspiracy.csv", "a", newline="", encoding="utf-8") as csvfile:
     writer = csv.writer(csvfile)
@@ -40,15 +46,16 @@ with open("contexts_conspiracy.csv", "a", newline="", encoding="utf-8") as csvfi
             break
         # Clean the snippet: replace newlines with spaces, strip
         snippet = snippet.replace("\n", " ").strip()
-        if 400 <= len(snippet) <= 600:
+        if 200 <= len(snippet) <= 800:
             title = f"conspiracy_{num_snippets+1}"
-            writer.writerow([title, "clean", snippet])
+            cl = context_creator.clean(snippet)
+            writer.writerow([title, "clean", cl])
             ms = context_creator.meaningful_shuffle(snippet)
-            writer.writerow([title, "meaningful_shuffle", ms])
+            writer.writerow([title, "meani", ms])
             ws = context_creator.word_shuffle(snippet)
-            writer.writerow([title, "word_shuffle", ws])
+            writer.writerow([title, "wordd", ws])
             cs = context_creator.character_shuffle(snippet)
-            writer.writerow([title, "character_shuffle", cs])
+            writer.writerow([title, "chara", cs])
             print(f"Added snippet {num_snippets+1}: {title}")
             num_snippets += 1
 

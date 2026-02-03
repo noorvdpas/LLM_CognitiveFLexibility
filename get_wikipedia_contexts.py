@@ -5,7 +5,7 @@ import context_creator
 
 wikipedia.set_lang("en")
 
-num_articles = 100  # Set to 100 for full run
+num_articles = 1000  # Set to 100 for full run
 
 with open("contexts_wikipedia.csv", "a", newline="", encoding="utf-8") as csvfile:
     writer = csv.writer(csvfile)
@@ -16,15 +16,16 @@ with open("contexts_wikipedia.csv", "a", newline="", encoding="utf-8") as csvfil
                 random_title = wikipedia.random(1)
                 page = wikipedia.page(random_title)
                 summary = page.summary.replace("\n", " ").strip()
-                if 400 <= len(summary) <= 600:
+                if 200 <= len(summary) <= 800:
                     title = page.title.replace(" ", "_")
-                    writer.writerow([title, "clean", summary])
+                    cl = context_creator.clean(summary)
+                    writer.writerow([title, "clean", cl])
                     ms = context_creator.meaningful_shuffle(summary)
-                    writer.writerow([title, "meaningful_shuffle", ms])
+                    writer.writerow([title, "meani", ms])
                     ws = context_creator.word_shuffle(summary)
-                    writer.writerow([title, "word_shuffle", ws])
+                    writer.writerow([title, "wordd", ws])
                     cs = context_creator.character_shuffle(summary)
-                    writer.writerow([title, "character_shuffle", cs])
+                    writer.writerow([title, "chara", cs])
                     print(f"Added article {i+1}: {title}")
                     success = True
                 else:
